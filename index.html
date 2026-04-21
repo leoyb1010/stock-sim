@@ -178,7 +178,7 @@ body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-
     <div class="logo-text">Stock<span>Sim</span> Pro</div>
   </div>
   <div class="header-right">
-    <div class="market-status"><div class="status-dot"></div> 模拟交易中</div>
+    <div class="market-status"><div class="status-dot"></div> 模拟交易中 · <span id="priceLabel" style="color:var(--yellow)">模拟行情</span></div>
     <div class="balance-display">
       <span class="balance-label">可用资金</span>
       <span class="balance-value" id="headerBalance">¥1,000,000.00</span>
@@ -333,8 +333,58 @@ if (saved) {
   } catch(e) {}
 }
 
-// ========== PRICE SIMULATION ==========
-function initPriceHistory() {
+// ========== REAL DATA + SIMULATION ==========
+const API_BASE = window.location.hostname.includes('vercel') ? '' : 'https://stock-sim-leoyb1010.vercel.app';
+const YAHOO_MAP = {
+  'sh': '^SSEC', 'sz': '^SZSC', 'hsi': '^HSI',
+  '600519': '600519.SS', '000858': '000858.SZ', '601318': '601318.SS',
+  '000001': '000001.SZ', '600036': '600036.SS', '000333': '000333.SZ',
+  '601012': '601012.SS', '300750': '300750.SZ', '688981': '688981.SS',
+  '002415': '002415.SZ', '600809': '600809.SS', '601888': '601888.SS',
+  '300059': '300059.SZ', '600276': '600276.SS', '002594': '002594.SZ'
+};
+
+async function fetchRealQuotes() {
+  try {
+    const url = `${API_BASE}/api/quotes`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (!data.success || !data.quotes) return false;
+
+    // Map Yahoo data to our stocks
+    Object.keys(YAHOO_MAP).forEach(key => {
+      const yahooSym = YAHOO_MAP[key];
+      const q = data.quotes[yahooSym];
+      if (!q || !q.price) return;
+
+      const stock = STOCKS.find(s => s.symbol === key);
+      if (stock) {
+        stock.price = q.price;
+        stock.prevClose = q.prevClose || stock.prevClose;
+        stock.high = q.high;
+        stock.low = q.low;
+        stock.open = q.open;
+      }
+      const idx = INDICES.find(i => i.id === key);
+      if (idx) {
+        idx.price = q.price;
+        idx.prevClose = q.prevClose || idx.prevClose;
+      }
+    });
+    return true;
+  } catch (e) {
+    console.warn('Yahoo API unavailable, using simulation:', e.message);
+    return false;
+  }
+}
+
+async function initPriceHistory() {
+  const hasReal = await fetchRealQuotes();
+  const priceLabel = document.getElementById('priceLabel');
+  if (priceLabel) priceLabel.textContent = hasReal ? '实时行情' : '模拟行情';
+  if (priceLabel) priceLabel.style.color = hasReal ? 'var(--green)' : 'var(--yellow)';
+
   STOCKS.forEach(s => {
     if (!state.priceHistory[s.symbol]) {
       state.priceHistory[s.symbol] = [];
@@ -380,6 +430,20 @@ function generateCandles(symbol, count = 40, isIndex = false) {
   return candles;
 }
 
+let realDataSync = false;
+let lastRealSync = 0;
+
+function syncFromYahoo() {
+  if (!realDataSync) return;
+  fetchRealQuotes().then(ok => {
+    if (ok) {
+      // Update candle with latest real price
+      if (state.selectedStock) updateCandleFromPrice(state.selectedStock.symbol);
+      if (state.selectedIndex) updateCandleFromPrice(state.selectedIndex, true);
+    }
+  });
+}
+
 function updatePrices() {
   STOCKS.forEach(s => {
     const volatility = s.price * 0.002;
@@ -397,6 +461,12 @@ function updatePrices() {
     state.indexHistory[idx.id].push(idx.price);
     if (state.indexHistory[idx.id].length > 120) state.indexHistory[idx.id].shift();
   });
+  // Re-sync from Yahoo every 60 seconds
+  const now = Date.now();
+  if (realDataSync && now - lastRealSync > 60000) {
+    lastRealSync = now;
+    syncFromYahoo();
+  }
   renderWatchlist();
   renderIndices();
   if (state.selectedStock) {
@@ -847,8 +917,9 @@ function setTimeframe(tf) {
 function filterStocks(val) { state.searchFilter = val; renderWatchlist(); }
 
 // ========== INIT ==========
-function init() {
-  initPriceHistory();
+async function init() {
+  const hasReal = await initPriceHistory();
+  if (hasReal) realDataSync = true;
   STOCKS.forEach(s => generateCandles(s.symbol));
   INDICES.forEach(idx => generateCandles(idx.id, 40, true));
   renderWatchlist();
