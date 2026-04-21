@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockSim Pro — 模拟交易平台</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-primary:#0a0e17;--bg-secondary:#111827;--bg-card:#1a2235;--bg-input:#0d1420;
+  --border:#1e2d45;--border-hover:#2a3f5f;
+  --text-primary:#e2e8f0;--text-secondary:#8892a4;--text-muted:#4a5568;
+  --green:#10b981;--green-bg:rgba(16,185,129,.12);--green-border:rgba(16,185,129,.3);
+  --red:#ef4444;--red-bg:rgba(239,68,68,.12);--red-border:rgba(239,68,68,.3);
+  --blue:#3b82f6;--blue-bg:rgba(59,130,246,.12);--blue-border:rgba(59,130,246,.3);
+  --yellow:#f59e0b;--purple:#8b5cf6;
+  --radius:8px;--radius-lg:12px;
+  --font-mono:'JetBrains Mono',monospace;--font-sans:'Space Grotesk',sans-serif;
+}
+html{font-size:14px}
+body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg-secondary)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-hover)}
+
+/* Header */
+.header{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--blue),var(--purple));border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:#fff}
+.logo-text{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}
+.logo-text span{color:var(--blue)}
+.header-right{display:flex;align-items:center;gap:20px}
+.balance-display{display:flex;align-items:center;gap:8px;background:var(--bg-card);padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border)}
+.balance-label{color:var(--text-secondary);font-size:.85rem}
+.balance-value{font-family:var(--font-mono);font-weight:700;color:var(--green);font-size:1.1rem}
+.market-status{display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--text-secondary)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.reset-btn{background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-family:var(--font-sans);font-size:.85rem;transition:all .2s}
+.reset-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* Main Layout */
+.main{display:grid;grid-template-columns:340px 1fr 320px;gap:1px;background:var(--border);min-height:calc(100vh - 61px)}
+.panel{background:var(--bg-primary);overflow:hidden;display:flex;flex-direction:column}
+.panel-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-secondary)}
+.panel-title{font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px}
+.panel-title .icon{font-size:1.1rem}
+
+/* Watchlist */
+.watchlist{flex:1;overflow-y:auto}
+.search-box{padding:12px 16px;border-bottom:1px solid var(--border)}
+.search-input{width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:10px 14px;border-radius:var(--radius);font-family:var(--font-sans);font-size:.9rem;outline:none;transition:border-color .2s}
+.search-input:focus{border-color:var(--blue)}
+.search-input::placeholder{color:var(--text-muted)}
+.stock-item{padding:14px 20px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s;display:grid;grid-template-columns:1fr auto;gap:4px}
+.stock-item:hover{background:var(--bg-card)}
+.stock-item.active{background:var(--bg-card);border-left:3px solid var(--blue)}
+.stock-info{display:flex;flex-direction:column;gap:2px}
+.stock-name{font-weight:600;font-size:.95rem}
+.stock-symbol{color:var(--text-secondary);font-family:var(--font-mono);font-size:.8rem}
+.stock-price-area{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.stock-price{font-family:var(--font-mono);font-weight:600;font-size:1rem}
+.stock-change{font-family:var(--font-mono);font-size:.8rem;padding:2px 6px;border-radius:4px}
+.stock-change.up{color:var(--green);background:var(--green-bg)}
+.stock-change.down{color:var(--red);background:var(--red-bg)}
+
+/* Center Panel */
+.center-panel{display:flex;flex-direction:column}
+.chart-header{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-secondary)}
+.chart-stock-info{display:flex;align-items:center;gap:16px}
+.chart-stock-name{font-size:1.3rem;font-weight:700}
+.chart-stock-price{font-family:var(--font-mono);font-size:1.5rem;font-weight:700}
+.chart-stock-change{font-family:var(--font-mono);font-size:.95rem}
+.chart-timeframes{display:flex;gap:4px}
+.tf-btn{background:transparent;border:1px solid var(--border);color:var(--text-secondary);padding:6px 12px;border-radius:var(--radius);cursor:pointer;font-family:var(--font-mono);font-size:.8rem;transition:all .2s}
+.tf-btn:hover{border-color:var(--blue);color:var(--blue)}
+.tf-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.chart-container{flex:1;position:relative;min-height:400px;padding:20px}
+.chart-canvas{width:100%;height:100%;display:block}
+.chart-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border)}
+.stat-item{background:var(--bg-primary);padding:16px 20px;text-align:center}
+.stat-label{color:var(--text-secondary);font-size:.8rem;margin-bottom:4px}
+.stat-value{font-family:var(--font-mono);font-weight:600;font-size:1rem}
+
+/* Trade Panel */
+.trade-panel{display:flex;flex-direction:column}
+.trade-tabs{display:flex;border-bottom:1px solid var(--border)}
+.trade-tab{flex:1;padding:14px;text-align:center;cursor:pointer;font-weight:600;font-size:.95rem;transition:all .2s;border-bottom:2px solid transparent}
+.trade-tab:hover{background:var(--bg-card)}
+.trade-tab.buy{color:var(--green)}
+.trade-tab.buy.active{border-bottom-color:var(--green);background:var(--green-bg)}
+.trade-tab.sell{color:var(--red)}
+.trade-tab.sell.active{border-bottom-color:var(--red);background:var(--red-bg)}
+.trade-form{padding:20px;display:flex;flex-direction:column;gap:16px;flex:1}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{color:var(--text-secondary);font-size:.85rem;font-weight:500}
+.form-input{background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:12px 14px;border-radius:var(--radius);font-family:var(--font-mono);font-size:1rem;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--blue)}
+.form-input[readonly]{opacity:.7;cursor:default}
+.order-types{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.order-type-btn{background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);padding:10px;border-radius:var(--radius);cursor:pointer;font-family:var(--font-sans);font-size:.85rem;transition:all .2s;text-align:center}
+.order-type-btn:hover{border-color:var(--blue)}
+.order-type-btn.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
+.quantity-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.preset-btn{background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);padding:8px;border-radius:var(--radius);cursor:pointer;font-family:var(--font-mono);font-size:.8rem;transition:all .2s}
+.preset-btn:hover{border-color:var(--blue);color:var(--blue)}
+.trade-total{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:flex;justify-content:space-between;align-items:center}
+.trade-total-label{color:var(--text-secondary);font-size:.85rem}
+.trade-total-value{font-family:var(--font-mono);font-weight:700;font-size:1.1rem}
+.submit-btn{padding:14px;border:none;border-radius:var(--radius);font-family:var(--font-sans);font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:.05em}
+.submit-btn.buy-btn{background:var(--green);color:#fff}
+.submit-btn.buy-btn:hover{background:#059669;transform:translateY(-1px)}
+.submit-btn.sell-btn{background:var(--red);color:#fff}
+.submit-btn.sell-btn:hover{background:#dc2626;transform:translateY(-1px)}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* Portfolio Section */
+.portfolio-section{border-top:1px solid var(--border);padding:16px 20px;overflow-y:auto;max-height:300px}
+.portfolio-title{font-weight:600;font-size:.9rem;margin-bottom:12px;color:var(--text-secondary)}
+.holding-item{padding:10px 12px;background:var(--bg-card);border-radius:var(--radius);margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:4px;font-size:.85rem}
+.holding-symbol{font-weight:600;font-family:var(--font-mono)}
+.holding-shares{color:var(--text-secondary)}
+.holding-pnl{font-family:var(--font-mono);font-weight:600;text-align:right}
+.holding-pnl.up{color:var(--green)}
+.holding-pnl.down{color:var(--red)}
+
+/* History */
+.history-section{border-top:1px solid var(--border);max-height:200px;overflow-y:auto}
+.history-title{padding:12px 20px;font-weight:600;font-size:.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border)}
+.history-item{padding:10px 20px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:auto 1fr auto;gap:8px;font-size:.8rem;align-items:center}
+.history-type{font-weight:600;padding:2px 8px;border-radius:4px;font-size:.75rem}
+.history-type.buy{background:var(--green-bg);color:var(--green)}
+.history-type.sell{background:var(--red-bg);color:var(--red)}
+.history-detail{color:var(--text-secondary);font-family:var(--font-mono)}
+.history-time{color:var(--text-muted);font-family:var(--font-mono);font-size:.75rem}
+
+/* Notification */
+.notification{position:fixed;top:80px;right:24px;padding:16px 24px;border-radius:var(--radius);font-weight:600;z-index:200;transform:translateX(120%);transition:transform .3s ease;max-width:360px}
+.notification.show{transform:translateX(0)}
+.notification.success{background:var(--green);color:#fff}
+.notification.error{background:var(--red);color:#fff}
+.notification.info{background:var(--blue);color:#fff}
+
+/* Toast for price updates */
+.flash-green{animation:flashG .6s}
+.flash-red{animation:flashR .6s}
+@keyframes flashG{0%{background:var(--green-bg)}100%{background:transparent}}
+@keyframes flashR{0%{background:var(--red-bg)}100%{background:transparent}}
+
+/* Responsive */
+@media(max-width:1200px){
+  .main{grid-template-columns:1fr}
+  .panel{max-height:none}
+  .watchlist{max-height:300px}
+  .trade-panel{max-height:500px}
+}
+
+/* Empty state */
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-muted)}
+.empty-state .icon{font-size:2rem;margin-bottom:8px}
+.empty-state p{font-size:.85rem}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">S</div>
+    <div class="logo-text">Stock<span>Sim</span> Pro</div>
+  </div>
+  <div class="header-right">
+    <div class="market-status"><div class="status-dot"></div> 模拟交易中</div>
+    <div class="balance-display">
+      <span class="balance-label">可用资金</span>
+      <span class="balance-value" id="headerBalance">¥1,000,000.00</span>
+    </div>
+    <button class="reset-btn" onclick="resetAccount()">重置账户</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Left: Watchlist -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title"><span class="icon">📊</span> 自选行情</div>
+    </div>
+    <div class="search-box">
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索股票名称/代码..." oninput="filterStocks(this.value)">
+    </div>
+    <div class="watchlist" id="watchlist"></div>
+  </div>
+
+  <!-- Center: Chart -->
+  <div class="panel center-panel">
+    <div class="chart-header">
+      <div class="chart-stock-info">
+        <div>
+          <div class="chart-stock-name" id="chartName">--</div>
+          <div style="color:var(--text-secondary);font-size:.85rem" id="chartSymbol">--</div>
+        </div>
+        <div>
+          <div class="chart-stock-price" id="chartPrice">--</div>
+          <div class="chart-stock-change" id="chartChange">--</div>
+        </div>
+      </div>
+      <div class="chart-timeframes">
+        <button class="tf-btn" data-tf="1" onclick="setTimeframe(1)">1分</button>
+        <button class="tf-btn active" data-tf="5" onclick="setTimeframe(5)">5分</button>
+        <button class="tf-btn" data-tf="15" onclick="setTimeframe(15)">15分</button>
+        <button class="tf-btn" data-tf="60" onclick="setTimeframe(60)">1时</button>
+        <button class="tf-btn" data-tf="D" onclick="setTimeframe('D')">日线</button>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="chartCanvas" class="chart-canvas"></canvas>
+    </div>
+    <div class="chart-stats">
+      <div class="stat-item"><div class="stat-label">今开</div><div class="stat-value" id="statOpen">--</div></div>
+      <div class="stat-item"><div class="stat-label">最高</div><div class="stat-value" id="statHigh">--</div></div>
+      <div class="stat-item"><div class="stat-label">最低</div><div class="stat-value" id="statLow">--</div></div>
+      <div class="stat-item"><div class="stat-label">昨收</div><div class="stat-value" id="statPrev">--</div></div>
+    </div>
+  </div>
+
+  <!-- Right: Trade -->
+  <div class="panel trade-panel">
+    <div class="trade-tabs">
+      <div class="trade-tab buy active" onclick="setTradeType('buy')">买入</div>
+      <div class="trade-tab sell" onclick="setTradeType('sell')">卖出</div>
+    </div>
+    <div class="trade-form">
+      <div class="form-group">
+        <label class="form-label">股票代码</label>
+        <input type="text" class="form-input" id="tradeSymbol" readonly value="--">
+      </div>
+      <div class="form-group">
+        <label class="form-label">委托价格</label>
+        <input type="number" class="form-input" id="tradePrice" step="0.01" placeholder="限价">
+      </div>
+      <div class="form-group">
+        <label class="form-label">委托数量（股）</label>
+        <input type="number" class="form-input" id="tradeQty" step="100" min="100" placeholder="100的整数倍" oninput="calcTotal()">
+        <div class="quantity-presets">
+          <button class="preset-btn" onclick="setQty(100)">100</button>
+          <button class="preset-btn" onclick="setQty(500)">500</button>
+          <button class="preset-btn" onclick="setQty(1000)">1000</button>
+          <button class="preset-btn" onclick="setQtyMax()">全仓</button>
+        </div>
+      </div>
+      <div class="trade-total">
+        <span class="trade-total-label">预估金额</span>
+        <span class="trade-total-value" id="tradeTotal">¥0.00</span>
+      </div>
+      <button class="submit-btn buy-btn" id="submitBtn" onclick="submitOrder()" disabled>买入</button>
+    </div>
+
+    <div class="portfolio-section">
+      <div class="portfolio-title">📁 持仓明细</div>
+      <div id="holdings"><div class="empty-state"><div class="icon">📭</div><p>暂无持仓</p></div></div>
+    </div>
+
+    <div class="history-section">
+      <div class="history-title">📋 成交记录</div>
+      <div id="history"><div class="empty-state"><div class="icon">📝</div><p>暂无成交记录</p></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script>
+// ========== STOCK DATA ==========
+const STOCKS = [
+  { symbol: '600519', name: '贵州茅台', price: 1688.50, prevClose: 1695.00, sector: '白酒' },
+  { symbol: '000858', name: '五粮液', price: 142.30, prevClose: 140.80, sector: '白酒' },
+  { symbol: '601318', name: '中国平安', price: 52.80, prevClose: 53.20, sector: '保险' },
+  { symbol: '000001', name: '平安银行', price: 12.45, prevClose: 12.38, sector: '银行' },
+  { symbol: '600036', name: '招商银行', price: 35.60, prevClose: 35.20, sector: '银行' },
+  { symbol: '000333', name: '美的集团', price: 68.90, prevClose: 69.50, sector: '家电' },
+  { symbol: '601012', name: '隆基绿能', price: 22.15, prevClose: 21.80, sector: '光伏' },
+  { symbol: '300750', name: '宁德时代', price: 198.60, prevClose: 195.40, sector: '新能源' },
+  { symbol: '688981', name: '中芯国际', price: 89.30, prevClose: 91.20, sector: '半导体' },
+  { symbol: '002415', name: '海康威视', price: 32.40, prevClose: 32.10, sector: '安防' },
+  { symbol: '600809', name: '山西汾酒', price: 195.80, prevClose: 193.50, sector: '白酒' },
+  { symbol: '601888', name: '中国中免', price: 78.20, prevClose: 79.60, sector: '零售' },
+  { symbol: '300059', name: '东方财富', price: 18.90, prevClose: 18.50, sector: '券商' },
+  { symbol: '600276', name: '恒瑞医药', price: 45.30, prevClose: 44.80, sector: '医药' },
+  { symbol: '002594', name: '比亚迪', price: 285.60, prevClose: 280.30, sector: '汽车' },
+];
+
+// ========== STATE ==========
+let state = {
+  balance: 1000000,
+  holdings: {},
+  history: [],
+  selectedStock: null,
+  tradeType: 'buy',
+  timeframe: 5,
+  priceHistory: {},
+  candles: {},
+  searchFilter: ''
+};
+
+// Load from localStorage
+const saved = localStorage.getItem('stocksim_state');
+if (saved) {
+  try {
+    const parsed = JSON.parse(saved);
+    state.balance = parsed.balance ?? 1000000;
+    state.holdings = parsed.holdings ?? {};
+    state.history = parsed.history ?? [];
+  } catch(e) {}
+}
+
+// ========== PRICE SIMULATION ==========
+function initPriceHistory() {
+  STOCKS.forEach(s => {
+    if (!state.priceHistory[s.symbol]) {
+      state.priceHistory[s.symbol] = [];
+      let p = s.price;
+      for (let i = 0; i < 60; i++) {
+        const change = (Math.random() - 0.5) * p * 0.008;
+        p = Math.max(p * 0.9, Math.min(p * 1.1, p + change));
+        state.priceHistory[s.symbol].push(p);
+      }
+      s.price = p;
+    }
+  });
+}
+
+function generateCandles(symbol, count = 40) {
+  const prices = state.priceHistory[symbol] || [];
+  const candles = [];
+  let p = prices.length > 0 ? prices[0] : STOCKS.find(s => s.symbol === symbol)?.price || 100;
+  for (let i = 0; i < count; i++) {
+    const open = p;
+    const volatility = p * 0.015;
+    const change = (Math.random() - 0.48) * volatility;
+    const close = open + change;
+    const high = Math.max(open, close) + Math.random() * volatility * 0.5;
+    const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+    const volume = Math.floor(Math.random() * 50000 + 10000);
+    candles.push({ open, high, low, close, volume, time: i });
+    p = close;
+  }
+  state.candles[symbol] = candles;
+  return candles;
+}
+
+function updatePrices() {
+  STOCKS.forEach(s => {
+    const volatility = s.price * 0.002;
+    const change = (Math.random() - 0.48) * volatility;
+    s.price = Math.round(Math.max(s.prevClose * 0.9, Math.min(s.prevClose * 1.1, s.price + change)) * 100) / 100;
+    if (!state.priceHistory[s.symbol]) state.priceHistory[s.symbol] = [];
+    state.priceHistory[s.symbol].push(s.price);
+    if (state.priceHistory[s.symbol].length > 120) state.priceHistory[s.symbol].shift();
+  });
+  renderWatchlist();
+  if (state.selectedStock) updateChartHeader();
+  renderHoldings();
+  saveState();
+}
+
+// ========== RENDERING ==========
+function formatPrice(p) { return '¥' + p.toFixed(2); }
+function formatQty(q) { return q.toLocaleString(); }
+function formatMoney(m) { return '¥' + m.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+function renderWatchlist() {
+  const el = document.getElementById('watchlist');
+  const filter = state.searchFilter.toLowerCase();
+  const filtered = STOCKS.filter(s =>
+    s.name.toLowerCase().includes(filter) || s.symbol.includes(filter)
+  );
+  el.innerHTML = filtered.map(s => {
+    const change = s.price - s.prevClose;
+    const pct = (change / s.prevClose * 100).toFixed(2);
+    const isUp = change >= 0;
+    const isActive = state.selectedStock?.symbol === s.symbol;
+    return `<div class="stock-item ${isActive ? 'active' : ''}" onclick="selectStock('${s.symbol}')">
+      <div class="stock-info">
+        <div class="stock-name">${s.name}</div>
+        <div class="stock-symbol">${s.symbol} · ${s.sector}</div>
+      </div>
+      <div class="stock-price-area">
+        <div class="stock-price">${formatPrice(s.price)}</div>
+        <div class="stock-change ${isUp ? 'up' : 'down'}">${isUp ? '+' : ''}${pct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectStock(symbol) {
+  state.selectedStock = STOCKS.find(s => s.symbol === symbol);
+  if (!state.candles[symbol]) generateCandles(symbol);
+  renderWatchlist();
+  updateChartHeader();
+  drawChart();
+  document.getElementById('tradeSymbol').value = state.selectedStock.symbol + ' ' + state.selectedStock.name;
+  document.getElementById('tradePrice').value = state.selectedStock.price.toFixed(2);
+  calcTotal();
+}
+
+function updateChartHeader() {
+  const s = state.selectedStock;
+  if (!s) return;
+  const change = s.price - s.prevClose;
+  const pct = (change / s.prevClose * 100).toFixed(2);
+  const isUp = change >= 0;
+  document.getElementById('chartName').textContent = s.name;
+  document.getElementById('chartSymbol').textContent = s.symbol + ' · ' + s.sector;
+  document.getElementById('chartPrice').textContent = formatPrice(s.price);
+  const changeEl = document.getElementById('chartChange');
+  changeEl.textContent = `${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${pct}%)`;
+  changeEl.style.color = isUp ? 'var(--green)' : 'var(--red)';
+  document.getElementById('statOpen').textContent = formatPrice(s.prevClose);
+  const candles = state.candles[s.symbol] || [];
+  if (candles.length > 0) {
+    const last = candles[candles.length - 1];
+    document.getElementById('statHigh').textContent = formatPrice(last.high);
+    document.getElementById('statLow').textContent = formatPrice(last.low);
+  }
+  document.getElementById('statPrev').textContent = formatPrice(s.prevClose);
+}
+
+// ========== CHART DRAWING ==========
+function drawChart() {
+  const canvas = document.getElementById('chartCanvas');
+  const container = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = container.clientWidth * dpr;
+  canvas.height = container.clientHeight * dpr;
+  canvas.style.width = container.clientWidth + 'px';
+  canvas.style.height = container.clientHeight + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const W = container.clientWidth;
+  const H = container.clientHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!state.selectedStock) {
+    ctx.fillStyle = '#4a5568';
+    ctx.font = '16px Space Grotesk';
+    ctx.textAlign = 'center';
+    ctx.fillText('请从左侧选择一只股票', W / 2, H / 2);
+    return;
+  }
+
+  const candles = state.candles[state.selectedStock.symbol] || [];
+  if (candles.length === 0) return;
+
+  const padding = { top: 20, right: 60, bottom: 30, left: 10 };
+  const chartW = W - padding.left - padding.right;
+  const chartH = H - padding.top - padding.bottom;
+  const volH = chartH * 0.2;
+  const priceH = chartH * 0.75;
+
+  // Find price range
+  let minP = Infinity, maxP = -Infinity, maxVol = 0;
+  candles.forEach(c => {
+    if (c.low < minP) minP = c.low;
+    if (c.high > maxP) maxP = c.high;
+    if (c.volume > maxVol) maxVol = c.volume;
+  });
+  const pRange = maxP - minP || 1;
+  minP -= pRange * 0.05;
+  maxP += pRange * 0.05;
+
+  const candleW = chartW / candles.length;
+  const bodyW = Math.max(1, candleW * 0.65);
+
+  // Grid lines
+  ctx.strokeStyle = '#1e2d45';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 5; i++) {
+    const y = padding.top + (priceH / 5) * i;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(W - padding.right, y); ctx.stroke();
+    const price = maxP - ((maxP - minP) / 5) * i;
+    ctx.fillStyle = '#4a5568';
+    ctx.font = '11px JetBrains Mono';
+    ctx.textAlign = 'right';
+    ctx.fillText(price.toFixed(2), W - 5, y + 4);
+  }
+
+  // Candles
+  candles.forEach((c, i) => {
+    const x = padding.left + i * candleW + candleW / 2;
+    const isUp = c.close >= c.open;
+    const color = isUp ? '#10b981' : '#ef4444';
+
+    // Wick
+    const yHigh = padding.top + ((maxP - c.high) / (maxP - minP)) * priceH;
+    const yLow = padding.top + ((maxP - c.low) / (maxP - minP)) * priceH;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, yHigh); ctx.lineTo(x, yLow); ctx.stroke();
+
+    // Body
+    const yOpen = padding.top + ((maxP - c.open) / (maxP - minP)) * priceH;
+    const yClose = padding.top + ((maxP - c.close) / (maxP - minP)) * priceH;
+    const bodyTop = Math.min(yOpen, yClose);
+    const bodyHeight = Math.max(1, Math.abs(yClose - yOpen));
+    ctx.fillStyle = color;
+    ctx.fillRect(x - bodyW / 2, bodyTop, bodyW, bodyHeight);
+
+    // Volume
+    const volBarH = (c.volume / maxVol) * volH;
+    const volY = padding.top + priceH + chartH * 0.05 + volH - volBarH;
+    ctx.fillStyle = isUp ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)';
+    ctx.fillRect(x - bodyW / 2, volY, bodyW, volBarH);
+  });
+
+  // Current price line
+  const lastCandle = candles[candles.length - 1];
+  const lastY = padding.top + ((maxP - lastCandle.close) / (maxP - minP)) * priceH;
+  const isUp = lastCandle.close >= lastCandle.open;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = isUp ? '#10b981' : '#ef4444';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padding.left, lastY); ctx.lineTo(W - padding.right, lastY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Price label
+  ctx.fillStyle = isUp ? '#10b981' : '#ef4444';
+  ctx.fillRect(W - padding.right, lastY - 10, 58, 20);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px JetBrains Mono';
+  ctx.textAlign = 'center';
+  ctx.fillText(lastCandle.close.toFixed(2), W - padding.right + 29, lastY + 4);
+}
+
+// ========== TRADING ==========
+function setTradeType(type) {
+  state.tradeType = type;
+  document.querySelectorAll('.trade-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.trade-tab.${type}`).classList.add('active');
+  const btn = document.getElementById('submitBtn');
+  btn.className = `submit-btn ${type}-btn`;
+  btn.textContent = type === 'buy' ? '买入' : '卖出';
+  calcTotal();
+}
+
+function setQty(q) {
+  document.getElementById('tradeQty').value = q;
+  calcTotal();
+}
+
+function setQtyMax() {
+  if (!state.selectedStock) return;
+  if (state.tradeType === 'buy') {
+    const maxQty = Math.floor(state.balance / state.selectedStock.price / 100) * 100;
+    document.getElementById('tradeQty').value = Math.max(0, maxQty);
+  } else {
+    const h = state.holdings[state.selectedStock.symbol];
+    document.getElementById('tradeQty').value = h ? h.qty : 0;
+  }
+  calcTotal();
+}
+
+function calcTotal() {
+  const price = parseFloat(document.getElementById('tradePrice').value) || 0;
+  const qty = parseInt(document.getElementById('tradeQty').value) || 0;
+  const total = price * qty;
+  document.getElementById('tradeTotal').textContent = formatMoney(total);
+  document.getElementById('submitBtn').disabled = !price || !qty || qty % 100 !== 0;
+}
+
+function submitOrder() {
+  if (!state.selectedStock) return;
+  const price = parseFloat(document.getElementById('tradePrice').value);
+  const qty = parseInt(document.getElementById('tradeQty').value);
+  if (!price || !qty || qty % 100 !== 0) {
+    notify('请输入有效的价格和数量（100的整数倍）', 'error');
+    return;
+  }
+
+  const total = price * qty;
+  const s = state.selectedStock;
+
+  if (state.tradeType === 'buy') {
+    if (total > state.balance) {
+      notify('资金不足！可用: ' + formatMoney(state.balance), 'error');
+      return;
+    }
+    state.balance -= total;
+    if (!state.holdings[s.symbol]) {
+      state.holdings[s.symbol] = { qty: 0, avgCost: 0 };
+    }
+    const h = state.holdings[s.symbol];
+    h.avgCost = (h.avgCost * h.qty + price * qty) / (h.qty + qty);
+    h.qty += qty;
+    notify(`买入 ${s.name} ${formatQty(qty)}股 @ ${formatPrice(price)}`, 'success');
+  } else {
+    const h = state.holdings[s.symbol];
+    if (!h || h.qty < qty) {
+      notify('持仓不足！可用: ' + (h ? formatQty(h.qty) : '0') + '股', 'error');
+      return;
+    }
+    state.balance += total;
+    h.qty -= qty;
+    if (h.qty === 0) delete state.holdings[s.symbol];
+    notify(`卖出 ${s.name} ${formatQty(qty)}股 @ ${formatPrice(price)}`, 'success');
+  }
+
+  state.history.unshift({
+    type: state.tradeType,
+    symbol: s.symbol,
+    name: s.name,
+    price,
+    qty,
+    total,
+    time: new Date().toLocaleTimeString('zh-CN')
+  });
+
+  document.getElementById('tradeQty').value = '';
+  calcTotal();
+  renderHoldings();
+  renderHistory();
+  updateBalance();
+  saveState();
+}
+
+function renderHoldings() {
+  const el = document.getElementById('holdings');
+  const keys = Object.keys(state.holdings);
+  if (keys.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无持仓</p></div>';
+    return;
+  }
+  el.innerHTML = keys.map(sym => {
+    const h = state.holdings[sym];
+    const stock = STOCKS.find(s => s.symbol === sym);
+    const currentPrice = stock ? stock.price : h.avgCost;
+    const pnl = (currentPrice - h.avgCost) * h.qty;
+    const pnlPct = ((currentPrice - h.avgCost) / h.avgCost * 100).toFixed(2);
+    const isUp = pnl >= 0;
+    return `<div class="holding-item">
+      <div>
+        <div class="holding-symbol">${sym}</div>
+        <div class="holding-shares">${formatQty(h.qty)}股 · 成本 ${h.avgCost.toFixed(2)}</div>
+      </div>
+      <div class="holding-pnl ${isUp ? 'up' : 'down'}">
+        ${isUp ? '+' : ''}${pnl.toFixed(2)} (${isUp ? '+' : ''}${pnlPct}%)
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderHistory() {
+  const el = document.getElementById('history');
+  if (state.history.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>暂无成交记录</p></div>';
+    return;
+  }
+  el.innerHTML = state.history.slice(0, 50).map(h =>
+    `<div class="history-item">
+      <span class="history-type ${h.type}">${h.type === 'buy' ? '买入' : '卖出'}</span>
+      <span class="history-detail">${h.name} ${formatQty(h.qty)}股 @ ${formatPrice(h.price)}</span>
+      <span class="history-time">${h.time}</span>
+    </div>`
+  ).join('');
+}
+
+function updateBalance() {
+  document.getElementById('headerBalance').textContent = formatMoney(state.balance);
+}
+
+function resetAccount() {
+  if (confirm('确定要重置账户吗？所有持仓和记录将被清空。')) {
+    state.balance = 1000000;
+    state.holdings = {};
+    state.history = [];
+    updateBalance();
+    renderHoldings();
+    renderHistory();
+    saveState();
+    notify('账户已重置，初始资金 ¥1,000,000', 'info');
+  }
+}
+
+function saveState() {
+  localStorage.setItem('stocksim_state', JSON.stringify({
+    balance: state.balance,
+    holdings: state.holdings,
+    history: state.history
+  }));
+}
+
+// ========== NOTIFICATION ==========
+function notify(msg, type = 'info') {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.className = `notification ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ========== TIMEFRAME ==========
+function setTimeframe(tf) {
+  state.timeframe = tf;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.tf-btn[data-tf="${tf}"]`).classList.add('active');
+  if (state.selectedStock) {
+    generateCandles(state.selectedStock.symbol, tf === 'D' ? 60 : 40);
+    drawChart();
+  }
+}
+
+// ========== SEARCH ==========
+function filterStocks(val) {
+  state.searchFilter = val;
+  renderWatchlist();
+}
+
+// ========== INIT ==========
+function init() {
+  initPriceHistory();
+  STOCKS.forEach(s => generateCandles(s.symbol));
+  renderWatchlist();
+  updateBalance();
+  renderHoldings();
+  renderHistory();
+
+  // Auto-select first stock
+  selectStock(STOCKS[0].symbol);
+
+  // Price update interval
+  setInterval(updatePrices, 2000);
+
+  // Redraw chart periodically
+  setInterval(() => {
+    if (state.selectedStock) {
+      // Add new candle every 10 updates
+      const candles = state.candles[state.selectedStock.symbol];
+      if (candles && candles.length > 0) {
+        const last = candles[candles.length - 1];
+        const change = (Math.random() - 0.48) * last.close * 0.005;
+        last.close = Math.round((last.close + change) * 100) / 100;
+        last.high = Math.max(last.high, last.close);
+        last.low = Math.min(last.low, last.close);
+        last.volume += Math.floor(Math.random() * 1000);
+      }
+      drawChart();
+      updateChartHeader();
+    }
+  }, 2000);
+
+  // Resize handler
+  window.addEventListener('resize', drawChart);
+}
+
+init();
+</script>
+</body>
+</html>
