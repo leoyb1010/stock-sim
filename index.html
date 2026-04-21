@@ -335,13 +335,13 @@ if (saved) {
 
 // ========== REAL DATA + SIMULATION ==========
 const API_BASE = window.location.hostname.includes('vercel') ? '' : 'https://stock-sim-leoyb1010.vercel.app';
-const YAHOO_MAP = {
-  'sh': '^SSEC', 'sz': '^SZSC', 'hsi': '^HSI',
-  '600519': '600519.SS', '000858': '000858.SZ', '601318': '601318.SS',
-  '000001': '000001.SZ', '600036': '600036.SS', '000333': '000333.SZ',
-  '601012': '601012.SS', '300750': '300750.SZ', '688981': '688981.SS',
-  '002415': '002415.SZ', '600809': '600809.SS', '601888': '601888.SS',
-  '300059': '300059.SZ', '600276': '600276.SS', '002594': '002594.SZ'
+const SINA_MAP = {
+  'sh': 'sh000001', 'sz': 'sz399001', 'cyb': 'sz399006', 'kc50': 'sh000688', 'hsi': 'hkHSI',
+  '600519': 'sh600519', '000858': 'sz000858', '601318': 'sh601318',
+  '000001': 'sz000001', '600036': 'sh600036', '000333': 'sz000333',
+  '601012': 'sh601012', '300750': 'sz300750', '688981': 'sh688981',
+  '002415': 'sz002415', '600809': 'sh600809', '601888': 'sh601888',
+  '300059': 'sz300059', '600276': 'sh600276', '002594': 'sz002594'
 };
 
 async function fetchRealQuotes() {
@@ -352,10 +352,10 @@ async function fetchRealQuotes() {
     const data = await resp.json();
     if (!data.success || !data.quotes) return false;
 
-    // Map Yahoo data to our stocks
-    Object.keys(YAHOO_MAP).forEach(key => {
-      const yahooSym = YAHOO_MAP[key];
-      const q = data.quotes[yahooSym];
+    // Map Sina data to our stocks
+    Object.keys(SINA_MAP).forEach(key => {
+      const sinaSym = SINA_MAP[key];
+      const q = data.quotes[sinaSym];
       if (!q || !q.price) return;
 
       const stock = STOCKS.find(s => s.symbol === key);
