@@ -41,8 +41,23 @@ body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-
 .reset-btn{background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-family:var(--font-sans);font-size:.85rem;transition:all .2s}
 .reset-btn:hover{border-color:var(--red);color:var(--red)}
 
+/* Index Bar */
+.index-bar{background:var(--bg-primary);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;gap:12px;overflow-x:auto;position:sticky;top:61px;z-index:90}
+.index-card{flex:1;min-width:180px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.index-card:hover{border-color:var(--border-hover);transform:translateY(-1px)}
+.index-card.active{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+.index-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.index-name{font-size:.85rem;color:var(--text-secondary);font-weight:500}
+.index-badge{font-size:.7rem;padding:2px 6px;border-radius:4px;background:var(--bg-input);color:var(--text-muted)}
+.index-value{font-family:var(--font-mono);font-size:1.25rem;font-weight:700;margin-bottom:4px}
+.index-change{font-family:var(--font-mono);font-size:.8rem}
+.index-change.up{color:var(--green)}
+.index-change.down{color:var(--red)}
+.index-sparkline{position:absolute;bottom:0;left:0;right:0;height:32px;opacity:.3}
+.index-sparkline canvas{width:100%;height:100%}
+
 /* Main Layout */
-.main{display:grid;grid-template-columns:340px 1fr 320px;gap:1px;background:var(--border);min-height:calc(100vh - 61px)}
+.main{display:grid;grid-template-columns:340px 1fr 320px;gap:1px;background:var(--border);min-height:calc(100vh - 61px - 100px)}
 .panel{background:var(--bg-primary);overflow:hidden;display:flex;flex-direction:column}
 .panel-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-secondary)}
 .panel-title{font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px}
@@ -99,10 +114,6 @@ body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-
 .form-input{background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:12px 14px;border-radius:var(--radius);font-family:var(--font-mono);font-size:1rem;outline:none;transition:border-color .2s}
 .form-input:focus{border-color:var(--blue)}
 .form-input[readonly]{opacity:.7;cursor:default}
-.order-types{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.order-type-btn{background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);padding:10px;border-radius:var(--radius);cursor:pointer;font-family:var(--font-sans);font-size:.85rem;transition:all .2s;text-align:center}
-.order-type-btn:hover{border-color:var(--blue)}
-.order-type-btn.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
 .quantity-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .preset-btn{background:var(--bg-input);border:1px solid var(--border);color:var(--text-secondary);padding:8px;border-radius:var(--radius);cursor:pointer;font-family:var(--font-mono);font-size:.8rem;transition:all .2s}
 .preset-btn:hover{border-color:var(--blue);color:var(--blue)}
@@ -143,21 +154,17 @@ body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-
 .notification.error{background:var(--red);color:#fff}
 .notification.info{background:var(--blue);color:#fff}
 
-/* Toast for price updates */
 .flash-green{animation:flashG .6s}
 .flash-red{animation:flashR .6s}
 @keyframes flashG{0%{background:var(--green-bg)}100%{background:transparent}}
 @keyframes flashR{0%{background:var(--red-bg)}100%{background:transparent}}
 
-/* Responsive */
 @media(max-width:1200px){
   .main{grid-template-columns:1fr}
   .panel{max-height:none}
   .watchlist{max-height:300px}
   .trade-panel{max-height:500px}
 }
-
-/* Empty state */
 .empty-state{text-align:center;padding:40px 20px;color:var(--text-muted)}
 .empty-state .icon{font-size:2rem;margin-bottom:8px}
 .empty-state p{font-size:.85rem}
@@ -179,6 +186,9 @@ body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-
     <button class="reset-btn" onclick="resetAccount()">重置账户</button>
   </div>
 </div>
+
+<!-- 大盘指数条 -->
+<div class="index-bar" id="indexBar"></div>
 
 <div class="main">
   <!-- Left: Watchlist -->
@@ -271,7 +281,15 @@ body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-
 <div class="notification" id="notification"></div>
 
 <script>
-// ========== STOCK DATA ==========
+// ========== DATA ==========
+const INDICES = [
+  { id: 'sh', name: '上证指数', code: '000001', price: 3288.50, prevClose: 3295.20, color: '#3b82f6' },
+  { id: 'sz', name: '深证成指', code: '399001', price: 10520.30, prevClose: 10480.60, color: '#8b5cf6' },
+  { id: 'cyb', name: '创业板指', code: '399006', price: 2098.40, prevClose: 2110.80, color: '#f59e0b' },
+  { id: 'kc50', name: '科创50', code: '000688', price: 985.60, prevClose: 990.30, color: '#10b981' },
+  { id: 'hsi', name: '恒生指数', code: 'HSI', price: 23580.20, prevClose: 23450.80, color: '#ef4444' },
+];
+
 const STOCKS = [
   { symbol: '600519', name: '贵州茅台', price: 1688.50, prevClose: 1695.00, sector: '白酒' },
   { symbol: '000858', name: '五粮液', price: 142.30, prevClose: 140.80, sector: '白酒' },
@@ -296,14 +314,15 @@ let state = {
   holdings: {},
   history: [],
   selectedStock: null,
+  selectedIndex: null,
   tradeType: 'buy',
   timeframe: 5,
   priceHistory: {},
+  indexHistory: {},
   candles: {},
   searchFilter: ''
 };
 
-// Load from localStorage
 const saved = localStorage.getItem('stocksim_state');
 if (saved) {
   try {
@@ -328,15 +347,27 @@ function initPriceHistory() {
       s.price = p;
     }
   });
+  INDICES.forEach(idx => {
+    if (!state.indexHistory[idx.id]) {
+      state.indexHistory[idx.id] = [];
+      let p = idx.price;
+      for (let i = 0; i < 60; i++) {
+        const change = (Math.random() - 0.5) * p * 0.006;
+        p = Math.max(p * 0.95, Math.min(p * 1.05, p + change));
+        state.indexHistory[idx.id].push(p);
+      }
+      idx.price = p;
+    }
+  });
 }
 
-function generateCandles(symbol, count = 40) {
-  const prices = state.priceHistory[symbol] || [];
+function generateCandles(symbol, count = 40, isIndex = false) {
+  const prices = isIndex ? (state.indexHistory[symbol] || []) : (state.priceHistory[symbol] || []);
   const candles = [];
-  let p = prices.length > 0 ? prices[0] : STOCKS.find(s => s.symbol === symbol)?.price || 100;
+  let p = prices.length > 0 ? prices[0] : (isIndex ? INDICES.find(x => x.id === symbol)?.price : STOCKS.find(s => s.symbol === symbol)?.price) || 100;
   for (let i = 0; i < count; i++) {
     const open = p;
-    const volatility = p * 0.015;
+    const volatility = p * 0.012;
     const change = (Math.random() - 0.48) * volatility;
     const close = open + change;
     const high = Math.max(open, close) + Math.random() * volatility * 0.5;
@@ -358,17 +389,155 @@ function updatePrices() {
     state.priceHistory[s.symbol].push(s.price);
     if (state.priceHistory[s.symbol].length > 120) state.priceHistory[s.symbol].shift();
   });
+  INDICES.forEach(idx => {
+    const volatility = idx.price * 0.0015;
+    const change = (Math.random() - 0.48) * volatility;
+    idx.price = Math.round(Math.max(idx.prevClose * 0.97, Math.min(idx.prevClose * 1.03, idx.price + change)) * 100) / 100;
+    if (!state.indexHistory[idx.id]) state.indexHistory[idx.id] = [];
+    state.indexHistory[idx.id].push(idx.price);
+    if (state.indexHistory[idx.id].length > 120) state.indexHistory[idx.id].shift();
+  });
   renderWatchlist();
-  if (state.selectedStock) updateChartHeader();
+  renderIndices();
+  if (state.selectedStock) {
+    updateChartHeader();
+    updateCandleFromPrice(state.selectedStock.symbol);
+    drawChart();
+  }
+  if (state.selectedIndex) {
+    updateIndexChartHeader();
+    updateCandleFromPrice(state.selectedIndex, true);
+    drawChart();
+  }
   renderHoldings();
   saveState();
 }
 
-// ========== RENDERING ==========
-function formatPrice(p) { return '¥' + p.toFixed(2); }
+function updateCandleFromPrice(symbol, isIndex = false) {
+  const candles = state.candles[symbol];
+  if (!candles || candles.length === 0) return;
+  const prices = isIndex ? state.indexHistory[symbol] : state.priceHistory[symbol];
+  if (!prices || prices.length === 0) return;
+  const current = prices[prices.length - 1];
+  const last = candles[candles.length - 1];
+  last.close = current;
+  last.high = Math.max(last.high, current);
+  last.low = Math.min(last.low, current);
+  last.volume += Math.floor(Math.random() * 1000);
+}
+
+// ========== FORMAT ==========
+function formatPrice(p) { return p >= 1000 ? p.toFixed(2) : p.toFixed(2); }
 function formatQty(q) { return q.toLocaleString(); }
 function formatMoney(m) { return '¥' + m.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function formatIndexPrice(p) { return p >= 10000 ? p.toFixed(2) : p.toFixed(2); }
 
+// ========== INDEX BAR ==========
+function renderIndices() {
+  const el = document.getElementById('indexBar');
+  el.innerHTML = INDICES.map(idx => {
+    const change = idx.price - idx.prevClose;
+    const pct = (change / idx.prevClose * 100).toFixed(2);
+    const isUp = change >= 0;
+    const isActive = state.selectedIndex?.id === idx.id;
+    return `<div class="index-card ${isActive ? 'active' : ''}" onclick="selectIndex('${idx.id}')">
+      <div class="index-header">
+        <span class="index-name">${idx.name}</span>
+        <span class="index-badge">${idx.code}</span>
+      </div>
+      <div class="index-value" style="color:${isUp ? 'var(--green)' : 'var(--red)'}">${formatIndexPrice(idx.price)}</div>
+      <div class="index-change ${isUp ? 'up' : 'down'}">${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${pct}%)</div>
+      <div class="index-sparkline"><canvas id="spark-${idx.id}"></canvas></div>
+    </div>`;
+  }).join('');
+  // Draw sparklines
+  INDICES.forEach(idx => drawSparkline(idx));
+}
+
+function drawSparkline(idx) {
+  const canvas = document.getElementById('spark-' + idx.id);
+  if (!canvas) return;
+  const parent = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = parent.clientWidth * dpr;
+  canvas.height = parent.clientHeight * dpr;
+  canvas.style.width = parent.clientWidth + 'px';
+  canvas.style.height = parent.clientHeight + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = parent.clientWidth;
+  const H = parent.clientHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  const data = state.indexHistory[idx.id] || [];
+  if (data.length < 2) return;
+
+  const recent = data.slice(-30);
+  let min = Math.min(...recent), max = Math.max(...recent);
+  const range = max - min || 1;
+  const isUp = recent[recent.length - 1] >= recent[0];
+  const color = isUp ? '#10b981' : '#ef4444';
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  recent.forEach((v, i) => {
+    const x = (i / (recent.length - 1)) * W;
+    const y = H - ((v - min) / range) * (H - 4) - 2;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill gradient
+  const lastX = W;
+  const lastY = H - ((recent[recent.length - 1] - min) / range) * (H - 4) - 2;
+  ctx.lineTo(lastX, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, isUp ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+function selectIndex(id) {
+  state.selectedIndex = INDICES.find(i => i.id === id);
+  state.selectedStock = null;
+  if (!state.candles[id]) generateCandles(id, 40, true);
+  renderIndices();
+  renderWatchlist();
+  updateIndexChartHeader();
+  drawChart();
+  document.getElementById('tradeSymbol').value = '--';
+  document.getElementById('tradePrice').value = '';
+  document.getElementById('tradeQty').value = '';
+  calcTotal();
+}
+
+function updateIndexChartHeader() {
+  const idx = state.selectedIndex;
+  if (!idx) return;
+  const change = idx.price - idx.prevClose;
+  const pct = (change / idx.prevClose * 100).toFixed(2);
+  const isUp = change >= 0;
+  document.getElementById('chartName').textContent = idx.name;
+  document.getElementById('chartSymbol').textContent = idx.code + ' · 大盘指数';
+  document.getElementById('chartPrice').textContent = formatIndexPrice(idx.price);
+  const changeEl = document.getElementById('chartChange');
+  changeEl.textContent = `${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${pct}%)`;
+  changeEl.style.color = isUp ? 'var(--green)' : 'var(--red)';
+  document.getElementById('statOpen').textContent = formatIndexPrice(idx.prevClose);
+  const candles = state.candles[idx.id] || [];
+  if (candles.length > 0) {
+    const last = candles[candles.length - 1];
+    document.getElementById('statHigh').textContent = formatIndexPrice(last.high);
+    document.getElementById('statLow').textContent = formatIndexPrice(last.low);
+  }
+  document.getElementById('statPrev').textContent = formatIndexPrice(idx.prevClose);
+}
+
+// ========== RENDERING ==========
 function renderWatchlist() {
   const el = document.getElementById('watchlist');
   const filter = state.searchFilter.toLowerCase();
@@ -395,8 +564,10 @@ function renderWatchlist() {
 
 function selectStock(symbol) {
   state.selectedStock = STOCKS.find(s => s.symbol === symbol);
+  state.selectedIndex = null;
   if (!state.candles[symbol]) generateCandles(symbol);
   renderWatchlist();
+  renderIndices();
   updateChartHeader();
   drawChart();
   document.getElementById('tradeSymbol').value = state.selectedStock.symbol + ' ' + state.selectedStock.name;
@@ -442,15 +613,20 @@ function drawChart() {
   const H = container.clientHeight;
   ctx.clearRect(0, 0, W, H);
 
-  if (!state.selectedStock) {
+  let candles, currentPrice;
+  if (state.selectedStock) {
+    candles = state.candles[state.selectedStock.symbol] || [];
+    currentPrice = state.selectedStock.price;
+  } else if (state.selectedIndex) {
+    candles = state.candles[state.selectedIndex.id] || [];
+    currentPrice = state.selectedIndex.price;
+  } else {
     ctx.fillStyle = '#4a5568';
     ctx.font = '16px Space Grotesk';
     ctx.textAlign = 'center';
-    ctx.fillText('请从左侧选择一只股票', W / 2, H / 2);
+    ctx.fillText('请从左侧选择一只股票或上方选择大盘指数', W / 2, H / 2);
     return;
   }
-
-  const candles = state.candles[state.selectedStock.symbol] || [];
   if (candles.length === 0) return;
 
   const padding = { top: 20, right: 60, bottom: 30, left: 10 };
@@ -459,7 +635,6 @@ function drawChart() {
   const volH = chartH * 0.2;
   const priceH = chartH * 0.75;
 
-  // Find price range
   let minP = Infinity, maxP = -Infinity, maxVol = 0;
   candles.forEach(c => {
     if (c.low < minP) minP = c.low;
@@ -473,7 +648,7 @@ function drawChart() {
   const candleW = chartW / candles.length;
   const bodyW = Math.max(1, candleW * 0.65);
 
-  // Grid lines
+  // Grid
   ctx.strokeStyle = '#1e2d45';
   ctx.lineWidth = 0.5;
   for (let i = 0; i <= 5; i++) {
@@ -491,23 +666,17 @@ function drawChart() {
     const x = padding.left + i * candleW + candleW / 2;
     const isUp = c.close >= c.open;
     const color = isUp ? '#10b981' : '#ef4444';
-
-    // Wick
     const yHigh = padding.top + ((maxP - c.high) / (maxP - minP)) * priceH;
     const yLow = padding.top + ((maxP - c.low) / (maxP - minP)) * priceH;
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, yHigh); ctx.lineTo(x, yLow); ctx.stroke();
-
-    // Body
     const yOpen = padding.top + ((maxP - c.open) / (maxP - minP)) * priceH;
     const yClose = padding.top + ((maxP - c.close) / (maxP - minP)) * priceH;
     const bodyTop = Math.min(yOpen, yClose);
     const bodyHeight = Math.max(1, Math.abs(yClose - yOpen));
     ctx.fillStyle = color;
     ctx.fillRect(x - bodyW / 2, bodyTop, bodyW, bodyHeight);
-
-    // Volume
     const volBarH = (c.volume / maxVol) * volH;
     const volY = padding.top + priceH + chartH * 0.05 + volH - volBarH;
     ctx.fillStyle = isUp ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)';
@@ -523,8 +692,6 @@ function drawChart() {
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(padding.left, lastY); ctx.lineTo(W - padding.right, lastY); ctx.stroke();
   ctx.setLineDash([]);
-
-  // Price label
   ctx.fillStyle = isUp ? '#10b981' : '#ef4444';
   ctx.fillRect(W - padding.right, lastY - 10, 58, 20);
   ctx.fillStyle = '#fff';
@@ -577,19 +744,15 @@ function submitOrder() {
     notify('请输入有效的价格和数量（100的整数倍）', 'error');
     return;
   }
-
   const total = price * qty;
   const s = state.selectedStock;
-
   if (state.tradeType === 'buy') {
     if (total > state.balance) {
       notify('资金不足！可用: ' + formatMoney(state.balance), 'error');
       return;
     }
     state.balance -= total;
-    if (!state.holdings[s.symbol]) {
-      state.holdings[s.symbol] = { qty: 0, avgCost: 0 };
-    }
+    if (!state.holdings[s.symbol]) state.holdings[s.symbol] = { qty: 0, avgCost: 0 };
     const h = state.holdings[s.symbol];
     h.avgCost = (h.avgCost * h.qty + price * qty) / (h.qty + qty);
     h.qty += qty;
@@ -605,17 +768,10 @@ function submitOrder() {
     if (h.qty === 0) delete state.holdings[s.symbol];
     notify(`卖出 ${s.name} ${formatQty(qty)}股 @ ${formatPrice(price)}`, 'success');
   }
-
   state.history.unshift({
-    type: state.tradeType,
-    symbol: s.symbol,
-    name: s.name,
-    price,
-    qty,
-    total,
+    type: state.tradeType, symbol: s.symbol, name: s.name, price, qty, total,
     time: new Date().toLocaleTimeString('zh-CN')
   });
-
   document.getElementById('tradeQty').value = '';
   calcTotal();
   renderHoldings();
@@ -639,13 +795,8 @@ function renderHoldings() {
     const pnlPct = ((currentPrice - h.avgCost) / h.avgCost * 100).toFixed(2);
     const isUp = pnl >= 0;
     return `<div class="holding-item">
-      <div>
-        <div class="holding-symbol">${sym}</div>
-        <div class="holding-shares">${formatQty(h.qty)}股 · 成本 ${h.avgCost.toFixed(2)}</div>
-      </div>
-      <div class="holding-pnl ${isUp ? 'up' : 'down'}">
-        ${isUp ? '+' : ''}${pnl.toFixed(2)} (${isUp ? '+' : ''}${pnlPct}%)
-      </div>
+      <div><div class="holding-symbol">${sym}</div><div class="holding-shares">${formatQty(h.qty)}股 · 成本 ${h.avgCost.toFixed(2)}</div></div>
+      <div class="holding-pnl ${isUp ? 'up' : 'down'}">${isUp ? '+' : ''}${pnl.toFixed(2)} (${isUp ? '+' : ''}${pnlPct}%)</div>
     </div>`;
   }).join('');
 }
@@ -657,11 +808,7 @@ function renderHistory() {
     return;
   }
   el.innerHTML = state.history.slice(0, 50).map(h =>
-    `<div class="history-item">
-      <span class="history-type ${h.type}">${h.type === 'buy' ? '买入' : '卖出'}</span>
-      <span class="history-detail">${h.name} ${formatQty(h.qty)}股 @ ${formatPrice(h.price)}</span>
-      <span class="history-time">${h.time}</span>
-    </div>`
+    `<div class="history-item"><span class="history-type ${h.type}">${h.type === 'buy' ? '买入' : '卖出'}</span><span class="history-detail">${h.name} ${formatQty(h.qty)}股 @ ${formatPrice(h.price)}</span><span class="history-time">${h.time}</span></div>`
   ).join('');
 }
 
@@ -671,85 +818,48 @@ function updateBalance() {
 
 function resetAccount() {
   if (confirm('确定要重置账户吗？所有持仓和记录将被清空。')) {
-    state.balance = 1000000;
-    state.holdings = {};
-    state.history = [];
-    updateBalance();
-    renderHoldings();
-    renderHistory();
-    saveState();
+    state.balance = 1000000; state.holdings = {}; state.history = [];
+    updateBalance(); renderHoldings(); renderHistory(); saveState();
     notify('账户已重置，初始资金 ¥1,000,000', 'info');
   }
 }
 
 function saveState() {
   localStorage.setItem('stocksim_state', JSON.stringify({
-    balance: state.balance,
-    holdings: state.holdings,
-    history: state.history
+    balance: state.balance, holdings: state.holdings, history: state.history
   }));
 }
 
-// ========== NOTIFICATION ==========
 function notify(msg, type = 'info') {
   const el = document.getElementById('notification');
-  el.textContent = msg;
-  el.className = `notification ${type} show`;
+  el.textContent = msg; el.className = `notification ${type} show`;
   setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-// ========== TIMEFRAME ==========
 function setTimeframe(tf) {
   state.timeframe = tf;
   document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`.tf-btn[data-tf="${tf}"]`).classList.add('active');
-  if (state.selectedStock) {
-    generateCandles(state.selectedStock.symbol, tf === 'D' ? 60 : 40);
-    drawChart();
-  }
+  if (state.selectedStock) { generateCandles(state.selectedStock.symbol); drawChart(); }
+  if (state.selectedIndex) { generateCandles(state.selectedIndex.id, 40, true); drawChart(); }
 }
 
-// ========== SEARCH ==========
-function filterStocks(val) {
-  state.searchFilter = val;
-  renderWatchlist();
-}
+function filterStocks(val) { state.searchFilter = val; renderWatchlist(); }
 
 // ========== INIT ==========
 function init() {
   initPriceHistory();
   STOCKS.forEach(s => generateCandles(s.symbol));
+  INDICES.forEach(idx => generateCandles(idx.id, 40, true));
   renderWatchlist();
+  renderIndices();
   updateBalance();
   renderHoldings();
   renderHistory();
-
-  // Auto-select first stock
   selectStock(STOCKS[0].symbol);
 
-  // Price update interval
   setInterval(updatePrices, 2000);
-
-  // Redraw chart periodically
-  setInterval(() => {
-    if (state.selectedStock) {
-      // Add new candle every 10 updates
-      const candles = state.candles[state.selectedStock.symbol];
-      if (candles && candles.length > 0) {
-        const last = candles[candles.length - 1];
-        const change = (Math.random() - 0.48) * last.close * 0.005;
-        last.close = Math.round((last.close + change) * 100) / 100;
-        last.high = Math.max(last.high, last.close);
-        last.low = Math.min(last.low, last.close);
-        last.volume += Math.floor(Math.random() * 1000);
-      }
-      drawChart();
-      updateChartHeader();
-    }
-  }, 2000);
-
-  // Resize handler
-  window.addEventListener('resize', drawChart);
+  window.addEventListener('resize', () => { drawChart(); renderIndices(); });
 }
 
 init();
